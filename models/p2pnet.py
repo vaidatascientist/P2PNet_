@@ -1,6 +1,14 @@
+import sys
+import math
+import time
+import numpy as np
+from typing import Any, Optional
+
 import torch
-import torch.nn.functional as F
 from torch import nn
+import util.misc as utils
+import torch.nn.functional as F
+from pytorch_lightning.utilities.types import STEP_OUTPUT
 
 from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
@@ -9,10 +17,112 @@ from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
 from .backbone import build_backbone
 from .matcher import build_matcher_crowd
 
-import numpy as np
-import time
 
 import pytorch_lightning as pl
+from torchmetrics import Accuracy
+
+
+class P2PNet(pl.LightningModule):
+    def __init__(self, args, backbone, row=2, line=2):
+        super().__init__()
+        self.backbone = backbone
+        self.num_classes = 2
+        # the number of all anchor points
+        num_anchor_points = row * line
+
+        self.regression = RegressionModel(
+            num_features_in=256, num_anchor_points=num_anchor_points)
+        self.classification = ClassificationModel(num_features_in=256,
+                                                  num_classes=self.num_classes,
+                                                  num_anchor_points=num_anchor_points)
+
+        # freezing backbone layers to not be trained
+        # for params in self.backbone.parameters():
+        #     params.requires_grad = False
+
+        # # freezing regression layers to not be trained
+        # for params in self.regression.parameters():
+        #     params.requires_grad = False
+
+        self.anchor_points = AnchorPoints(
+            pyramid_levels=[3,], row=row, line=line)
+
+        # self.num_classes = 1
+        self.fpn = Decoder(256, 512, 512)
+        self.point_loss_coef = args.point_loss_coef
+
+        self.train_acc = Accuracy(task='binary')
+        self.val_acc = Accuracy(task='binary')
+
+        self.weight_dict = {'loss_ce': 1, 'loss_points': self.point_loss_coef}
+        self.losses = ['labels', 'points']
+        self.matcher = build_matcher_crowd(args)
+
+        self.criterion = SetCriterion_Crowd(1,
+                                            matcher=self.matcher, weight_dict=self.weight_dict,
+                                            eos_coef=args.eos_coef, losses=self.losses)
+        self.learning_rate = args.lr
+        self.lr_backbone = args.lr_backbone
+        self.lr_drop = args.lr_drop
+
+    def forward(self, samples: NestedTensor):
+        # get the backbone features
+        features = self.backbone(samples)
+        # forward the feature pyramid
+        features_fpn = self.fpn([features[1], features[2], features[3]])
+
+        batch_size = features[0].shape[0]
+        # run the regression and classification branch
+        regression = self.regression(features_fpn[1]) * 100  # 8x
+        classification = self.classification(features_fpn[1])
+        anchor_points = self.anchor_points(samples).repeat(batch_size, 1, 1)
+        # decode the points as prediction
+        output_coord = regression + anchor_points
+        output_class = classification
+        out = {'pred_logits': output_class, 'pred_points': output_coord}
+        return out
+
+    def training_step(self, batch, batch_idx):
+        samples, targets = batch
+        targets = [{k: v for k, v in t.items()} for t in targets]
+        outputs = self(samples)
+        loss_dict = self.criterion(outputs, targets)
+        weight_dict = self.criterion.weight_dict
+        losses = sum(loss_dict[k] * weight_dict[k]
+                     for k in loss_dict.keys() if k in weight_dict)
+        self.log('train_loss', losses)
+
+        return losses
+
+    def validation_step(self, batch, batch_idx):
+        samples, targets = batch
+        outputs = self(samples)
+        outputs_scores = torch.nn.functional.softmax(
+            outputs['pred_logits'], -1)[:, :, 1][0]
+        outputs_points = outputs['pred_points'][0]
+        gt_cnt = targets[0]['point'].shape[0]
+        threshold = 0.5
+        points = outputs_points[outputs_scores >
+                                threshold].detach().cpu().numpy().tolist()
+        predict_cnt = int((outputs_scores > threshold).sum())
+        mae = abs(predict_cnt - gt_cnt)
+        mse = (predict_cnt - gt_cnt) * (predict_cnt - gt_cnt)
+        self.log('val_mae', mae, prog_bar=True)
+        self.log('val_rmse', np.sqrt(mse), prog_bar=True)
+
+    def configure_optimizers(self):
+        param_dicts = [
+            {"params": [p for n, p in self.named_parameters(
+            ) if "backbone" not in n and p.requires_grad]},
+            {
+                "params": [p for n, p in self.named_parameters() if "backbone" in n and p.requires_grad],
+                "lr": self.lr_backbone,
+            },
+        ]
+        optimizer = torch.optim.Adam(param_dicts, lr=self.learning_rate)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, self.lr_drop)
+        return [optimizer], [scheduler]
+
 
 # the network frmawork of the regression branch
 
@@ -229,51 +339,6 @@ class Decoder(pl.LightningModule):
 # the defenition of the P2PNet model
 
 
-class P2PNet(pl.LightningModule):
-    def __init__(self, backbone, row=2, line=2):
-        super().__init__()
-        self.backbone = backbone
-        self.num_classes = 2
-        # the number of all anchor points
-        num_anchor_points = row * line
-
-        self.regression = RegressionModel(
-            num_features_in=256, num_anchor_points=num_anchor_points)
-        self.classification = ClassificationModel(num_features_in=256,
-                                                  num_classes=self.num_classes,
-                                                  num_anchor_points=num_anchor_points)
-
-        # freezing backbone layers to not be trained
-        for params in self.backbone.parameters():
-            params.requires_grad = False
-
-        # freezing regression layers to not be trained
-        for params in self.regression.parameters():
-            params.requires_grad = False
-
-        self.anchor_points = AnchorPoints(
-            pyramid_levels=[3,], row=row, line=line)
-
-        self.fpn = Decoder(256, 512, 512)
-
-    def forward(self, samples: NestedTensor):
-        # get the backbone features
-        features = self.backbone(samples)
-        # forward the feature pyramid
-        features_fpn = self.fpn([features[1], features[2], features[3]])
-
-        batch_size = features[0].shape[0]
-        # run the regression and classification branch
-        regression = self.regression(features_fpn[1]) * 100  # 8x
-        classification = self.classification(features_fpn[1])
-        anchor_points = self.anchor_points(samples).repeat(batch_size, 1, 1)
-        # decode the points as prediction
-        output_coord = regression + anchor_points
-        output_class = classification
-        out = {'pred_logits': output_class, 'pred_points': output_coord}
-        return out
-
-
 class SetCriterion_Crowd(pl.LightningModule):
 
     def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses):
@@ -386,7 +451,7 @@ def build(args, training):
     num_classes = 1
 
     backbone = build_backbone(args)
-    model = P2PNet(backbone, args.row, args.line)
+    model = P2PNet(args, backbone, args.row, args.line)
     if not training:
         return model
 
