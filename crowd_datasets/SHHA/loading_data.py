@@ -5,8 +5,6 @@ from .SHHA import SHHA
 import util.misc as utils
 
 # DeNormalize used to get original images
-
-
 class DeNormalize(object):
     def __init__(self, mean, std):
         self.mean = mean

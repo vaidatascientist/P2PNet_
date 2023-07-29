@@ -23,7 +23,7 @@ from torchmetrics import Accuracy
 
 
 class P2PNet(pl.LightningModule):
-    def __init__(self, args, backbone, row=2, line=2):
+    def __init__(self, args, backbone, row=2, line=2, training=False):
         super().__init__()
         self.backbone = backbone
         self.num_classes = 2
@@ -49,21 +49,23 @@ class P2PNet(pl.LightningModule):
 
         # self.num_classes = 1
         self.fpn = Decoder(256, 512, 512)
-        self.point_loss_coef = args.point_loss_coef
+        
+        if training:
+            self.point_loss_coef = args.point_loss_coef
 
-        self.train_acc = Accuracy(task='binary')
-        self.val_acc = Accuracy(task='binary')
+            self.train_acc = Accuracy(task='binary')
+            self.val_acc = Accuracy(task='binary')
 
-        self.weight_dict = {'loss_ce': 1, 'loss_points': self.point_loss_coef}
-        self.losses = ['labels', 'points']
-        self.matcher = build_matcher_crowd(args)
+            self.weight_dict = {'loss_ce': 1, 'loss_points': self.point_loss_coef}
+            self.losses = ['labels', 'points']
+            self.matcher = build_matcher_crowd(args)
 
-        self.criterion = SetCriterion_Crowd(1,
-                                            matcher=self.matcher, weight_dict=self.weight_dict,
-                                            eos_coef=args.eos_coef, losses=self.losses)
-        self.learning_rate = args.lr
-        self.lr_backbone = args.lr_backbone
-        self.lr_drop = args.lr_drop
+            self.criterion = SetCriterion_Crowd(1,
+                                                matcher=self.matcher, weight_dict=self.weight_dict,
+                                                eos_coef=args.eos_coef, losses=self.losses)
+            self.learning_rate = args.lr
+            self.lr_backbone = args.lr_backbone
+            self.lr_drop = args.lr_drop
 
     def forward(self, samples: NestedTensor):
         # get the backbone features
@@ -111,6 +113,8 @@ class P2PNet(pl.LightningModule):
         self.log('val_rmse', np.sqrt(mse), prog_bar=True)
 
     def configure_optimizers(self):
+        if not self.training:
+            return
         param_dicts = [
             {"params": [p for n, p in self.named_parameters(
             ) if "backbone" not in n and p.requires_grad]},
@@ -448,18 +452,7 @@ class SetCriterion_Crowd(pl.LightningModule):
 
 def build(args, training):
     # treats persons as a single class
-    num_classes = 1
-
     backbone = build_backbone(args)
-    model = P2PNet(args, backbone, args.row, args.line)
-    if not training:
-        return model
+    model = P2PNet(args, backbone, args.row, args.line, training)
 
-    weight_dict = {'loss_ce': 1, 'loss_points': args.point_loss_coef}
-    losses = ['labels', 'points']
-    matcher = build_matcher_crowd(args)
-    criterion = SetCriterion_Crowd(num_classes,
-                                   matcher=matcher, weight_dict=weight_dict,
-                                   eos_coef=args.eos_coef, losses=losses)
-
-    return model, criterion
+    return model

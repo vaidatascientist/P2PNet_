@@ -1,12 +1,10 @@
 import os
-import random
-import torch
-import numpy as np
-from torch.utils.data import Dataset
-from PIL import Image
 import cv2
-import glob
-import scipy.io as io
+import torch
+import random
+import numpy as np
+from PIL import Image
+from torch.utils.data import Dataset
 
 class SHHA(Dataset):
     def __init__(self, data_root, transform=None, train=False, patch=False, flip=False):

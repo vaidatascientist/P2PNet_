@@ -51,7 +51,9 @@ def main(args, debug=False):
     # load trained model
     if args.weight_path is not None:
         checkpoint = torch.load(args.weight_path, map_location='cpu')
-        model.load_state_dict(checkpoint['model'])
+        # print(checkpoint.keys())
+        # model.load_state_dict(checkpoint['state_dict'])
+        
     # convert to eval mode
     model.eval()
     # create the pre-processing transform
@@ -61,51 +63,51 @@ def main(args, debug=False):
     ])
 
     # set your image path here
-    image_folder = "/home/ubuntu/P2PNet/DATA_ROOT/test/images"
-    image_paths = [os.path.join(image_folder, filename) for filename in os.listdir(image_folder) if filename.endswith(".jpg")]
+    # image_folder = "/home/ubuntu/P2PNet/DATA_ROOT/test/images"
+    # image_paths = [os.path.join(image_folder, filename) for filename in os.listdir(image_folder) if filename.endswith(".jpg")]
     
-    predict_cnt = 0
-    total_dev = 0
+    # predict_cnt = 0
+    # total_dev = 0
     
-    for img_path in image_paths:
-    # img_path = "/home/ubuntu/P2PNet/DATA_ROOT/test/images/frame_020.jpg"
+    # for img_path in image_paths:
+    img_path = "/home/ubuntu/P2PNet/DATA_ROOT/test/frame_00020.jpg"
     # load the images
-        img_raw = Image.open(img_path).convert('RGB')
-        # round the size
-        width, height = img_raw.size
-        new_width = width // 128 * 128
-        new_height = height // 128 * 128
-        img_raw = img_raw.resize((new_width, new_height), Image.ANTIALIAS)
-        # pre-proccessing
-        img = transform(img_raw)
+    img_raw = Image.open(img_path).convert('RGB')
+    # round the size
+    width, height = img_raw.size
+    new_width = width // 128 * 128
+    new_height = height // 128 * 128
+    img_raw = img_raw.resize((new_width, new_height), Image.ANTIALIAS)
+    # pre-proccessing
+    img = transform(img_raw)
 
-        samples = torch.Tensor(img).unsqueeze(0)
-        samples = samples.to(device)
-        # run inference
-        outputs = model(samples)
-        outputs_scores = torch.nn.functional.softmax(outputs['pred_logits'], -1)[:, :, 1][0]
+    samples = torch.Tensor(img).unsqueeze(0)
+    samples = samples.to(device)
+    # run inference
+    outputs = model(samples)
+    outputs_scores = torch.nn.functional.softmax(outputs['pred_logits'], -1)[:, :, 1][0]
 
-        outputs_points = outputs['pred_points'][0]
+    outputs_points = outputs['pred_points'][0]
 
-        threshold = 0.5
-        # filter the predictions
-        points = outputs_points[outputs_scores > threshold].detach().cpu().numpy().tolist()
-        predict_cnt = int((outputs_scores > threshold).sum())
-        
-        if predict_cnt != 81:
-            total_dev += abs(predict_cnt - 81)
+    threshold = 0.5
+    # filter the predictions
+    points = outputs_points[outputs_scores > threshold].detach().cpu().numpy().tolist()
+    predict_cnt = int((outputs_scores > threshold).sum())
+    
+    if predict_cnt != 81:
+        total_dev += abs(predict_cnt - 81)
 
-        outputs_scores = torch.nn.functional.softmax(outputs['pred_logits'], -1)[:, :, 1][0]
+    outputs_scores = torch.nn.functional.softmax(outputs['pred_logits'], -1)[:, :, 1][0]
 
-        outputs_points = outputs['pred_points'][0]
-        # draw the predictions
-        size = 6
-        img_to_draw = cv2.cvtColor(np.array(img_raw), cv2.COLOR_RGB2BGR)
-        for p in points:
-            img_to_draw = cv2.circle(img_to_draw, (int(p[0]), int(p[1])), size, (0, 0, 255), -1)
-            # save the visualized image
-            # cv2.imwrite(os.path.join(args.output_dir, 'pred{}.jpg'.format(predict_cnt)), img_to_draw)
-    print(total_dev/len(image_paths))
+    outputs_points = outputs['pred_points'][0]
+    # draw the predictions
+    size = 6
+    img_to_draw = cv2.cvtColor(np.array(img_raw), cv2.COLOR_RGB2BGR)
+    for p in points:
+        img_to_draw = cv2.circle(img_to_draw, (int(p[0]), int(p[1])), size, (0, 0, 255), -1)
+        # save the visualized image
+        # cv2.imwrite(os.path.join(args.output_dir, 'pred{}.jpg'.format(predict_cnt)), img_to_draw)
+    # print(total_dev/len(image_paths))
     # print(predict_cnt)
     
 if __name__ == '__main__':

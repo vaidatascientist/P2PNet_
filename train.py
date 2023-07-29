@@ -1,16 +1,8 @@
-import os
-import time
-import random
 import warnings
-import datetime
 import argparse
-from pathlib import Path
 
-import torch
-import torch.nn as nn
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-import torch.multiprocessing as mp
 
 from engine import *
 from models import build_model
@@ -21,20 +13,7 @@ warnings.filterwarnings('ignore')
 
 
 def main(args):
-    run_log_name = os.path.join(args.output_dir, 'run_log.txt')
-    with open(run_log_name, "w") as log_file:
-        log_file.write('Eval Log %s\n' % time.strftime("%c"))
-
-    if args.frozen_weights is not None:
-        assert args.masks, "Frozen training is meant for segmentation only"
-    # backup the arguments
     print(args)
-    with open(run_log_name, "a") as log_file:
-        log_file.write("{}".format(args))
-    seed = args.seed + utils.get_rank()
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
 
     best_mae_checkpoint_callback = ModelCheckpoint(
         monitor='val_rmse',
@@ -42,23 +21,21 @@ def main(args):
         filename='best_rmse_model-{epoch:02d}-{val_rmse:.2f}',
         save_top_k=1,
         mode='min',
+        every_n_epochs=1
     )
 
     latest_checkpoint_callback = ModelCheckpoint(
         dirpath=args.checkpoints_dir,
         filename='latest_model-{epoch:02d}-{val_rmse:.2f}',
-        # save_last=True
     )
 
-    model, criterion = build_model(args, training=True)
+    model = build_model(args, training=True)
     dm = FIBY_Lightning(args.data_root, args.batch_size,
                         args.num_workers, args.pin_memory)
     trainer = pl.Trainer(devices=4, accelerator="gpu",
                          strategy="ddp_find_unused_parameters_true",
                          callbacks=[best_mae_checkpoint_callback, latest_checkpoint_callback])
     trainer.fit(model, dm, ckpt_path=args.resume if args.resume else None)
-    # trainer.validate(model, dm.val_dataloader())
-
 
 def get_args_parser():
     parser = argparse.ArgumentParser(
