@@ -1,17 +1,12 @@
-import sys
-import math
-import time
 import numpy as np
-from typing import Any, Optional
 
 import torch
 from torch import nn
-import util.misc as utils
 import torch.nn.functional as F
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 
-from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
-                       accuracy, get_world_size, interpolate,
+from util.misc import (NestedTensor,
+                        get_world_size,
                        is_dist_avail_and_initialized)
 
 from .backbone import build_backbone
@@ -25,6 +20,7 @@ from torchmetrics import Accuracy
 class P2PNet(pl.LightningModule):
     def __init__(self, args, backbone, row=2, line=2, training=False):
         super().__init__()
+        self.hparams = args
         self.backbone = backbone
         self.num_classes = 2
         # the number of all anchor points
@@ -126,10 +122,8 @@ class P2PNet(pl.LightningModule):
         optimizer = torch.optim.Adam(param_dicts, lr=self.learning_rate)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, self.lr_drop)
         return [optimizer], [scheduler]
-
-
+    
 # the network frmawork of the regression branch
-
 
 class RegressionModel(pl.LightningModule):
     def __init__(self, num_features_in, num_anchor_points=4, feature_size=256):
@@ -169,7 +163,6 @@ class RegressionModel(pl.LightningModule):
         return out.contiguous().view(out.shape[0], -1, 2)
 
 # the network frmawork of the classification branch
-
 
 class ClassificationModel(pl.LightningModule):
     def __init__(self, num_features_in, num_anchor_points=4, num_classes=80, prior=0.01, feature_size=256):
@@ -219,7 +212,6 @@ class ClassificationModel(pl.LightningModule):
 
 # generate the reference points in grid layout
 
-
 def generate_anchor_points(stride=16, row=3, line=3):
     row_step = stride / row
     line_step = stride / line
@@ -235,7 +227,6 @@ def generate_anchor_points(stride=16, row=3, line=3):
 
     return anchor_points
 # shift the meta-anchor to get an acnhor points
-
 
 def shift(shape, stride, anchor_points):
     shift_x = (np.arange(0, shape[1]) + 0.5) * stride
@@ -256,7 +247,6 @@ def shift(shape, stride, anchor_points):
     return all_anchor_points
 
 # this class generate all reference points on all pyramid levels
-
 
 class AnchorPoints(pl.LightningModule):
     def __init__(self, pyramid_levels=None, strides=None, row=3, line=3):

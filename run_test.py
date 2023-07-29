@@ -1,8 +1,5 @@
 import argparse
-import datetime
-import random
-import time
-from pathlib import Path
+import sys
 
 import torch
 import torchvision.transforms as standard_transforms
@@ -10,9 +7,8 @@ import numpy as np
 
 from PIL import Image
 import cv2
-from crowd_datasets import build_dataset
 from engine import *
-from models import build_model
+from models.p2pnet import P2PNet
 import os
 import warnings
 warnings.filterwarnings('ignore')
@@ -38,25 +34,27 @@ def get_args_parser():
 
     return parser
 
-def main(args, debug=False):
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = '{}'.format(args.gpu_id)
-
+def main(args, debug=True):
     print(args)
+    
+    os.environ["CUDA_VISIBLE_DEVICES"] = '{}'.format(args.gpu_id)
     device = torch.device('cuda')
-    # get the P2PNet
-    model = build_model(args)
-    # move to GPU
-    model.to(device)
-    # load trained model
-    if args.weight_path is not None:
-        checkpoint = torch.load(args.weight_path, map_location='cpu')
-        # print(checkpoint.keys())
-        # model.load_state_dict(checkpoint['state_dict'])
-        
-    # convert to eval mode
+    
+    checkpoint = torch.load(args.weight_path, map_location='cpu')
+    print(checkpoint['loops'])
+    # print(checkpoint['callbacks'])
+    # print(checkpoint['optimizer_states'])
+    # print(checkpoint['lr_schedulers'])
+    # hparams = checkpoint['optimizer_states'][0]
+    # print(hparams)
+
+    if debug:
+        sys.exit()
+
+    model = P2PNet.load_from_checkpoint(checkpoint_path=args.weight_path, row=args.row, line=args.line, backbone=args.backbone)
     model.eval()
-    # create the pre-processing transform
+    model.cuda(args.gpu_id)
+    
     transform = standard_transforms.Compose([
         standard_transforms.ToTensor(), 
         standard_transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -94,8 +92,8 @@ def main(args, debug=False):
     points = outputs_points[outputs_scores > threshold].detach().cpu().numpy().tolist()
     predict_cnt = int((outputs_scores > threshold).sum())
     
-    if predict_cnt != 81:
-        total_dev += abs(predict_cnt - 81)
+    # if predict_cnt != 81:
+    #     total_dev += abs(predict_cnt - 81)
 
     outputs_scores = torch.nn.functional.softmax(outputs['pred_logits'], -1)[:, :, 1][0]
 
@@ -106,7 +104,7 @@ def main(args, debug=False):
     for p in points:
         img_to_draw = cv2.circle(img_to_draw, (int(p[0]), int(p[1])), size, (0, 0, 255), -1)
         # save the visualized image
-        # cv2.imwrite(os.path.join(args.output_dir, 'pred{}.jpg'.format(predict_cnt)), img_to_draw)
+        cv2.imwrite(os.path.join(args.output_dir, 'pred_lightning{}.jpg'.format(predict_cnt)), img_to_draw)
     # print(total_dev/len(image_paths))
     # print(predict_cnt)
     
