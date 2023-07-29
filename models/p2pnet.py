@@ -20,7 +20,9 @@ from torchmetrics import Accuracy
 class P2PNet(pl.LightningModule):
     def __init__(self, args, backbone, row=2, line=2, training=False):
         super().__init__()
-        self.hparams = args
+        
+        # self.save_hyperparameters() # not sure yet
+        
         self.backbone = backbone
         self.num_classes = 2
         # the number of all anchor points
@@ -109,8 +111,6 @@ class P2PNet(pl.LightningModule):
         self.log('val_rmse', np.sqrt(mse), prog_bar=True)
 
     def configure_optimizers(self):
-        if not self.training:
-            return
         param_dicts = [
             {"params": [p for n, p in self.named_parameters(
             ) if "backbone" not in n and p.requires_grad]},

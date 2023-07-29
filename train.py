@@ -28,7 +28,7 @@ def main(args):
         dirpath=args.checkpoints_dir,
         filename='latest_model-{epoch:02d}-{val_rmse:.2f}',
     )
-
+    
     model = build_model(args, training=True)
     dm = FIBY_Lightning(args.data_root, args.batch_size,
                         args.num_workers, args.pin_memory)

@@ -1,5 +1,6 @@
 import argparse
 import sys
+import pickle
 
 import torch
 import torchvision.transforms as standard_transforms
@@ -12,6 +13,8 @@ from models.p2pnet import P2PNet
 import os
 import warnings
 warnings.filterwarnings('ignore')
+
+from models import build_model
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Set parameters for P2PNet evaluation', add_help=False)
@@ -34,24 +37,26 @@ def get_args_parser():
 
     return parser
 
-def main(args, debug=True):
+def main(args, debug=False):
     print(args)
     
     os.environ["CUDA_VISIBLE_DEVICES"] = '{}'.format(args.gpu_id)
     device = torch.device('cuda')
     
+    load_path = "./args_training.pkl"
+    with open(load_path, "rb") as f:
+        loaded_args = pickle.load(f)
+    
+    model = build_model(args, training=False)
+    
     checkpoint = torch.load(args.weight_path, map_location='cpu')
-    print(checkpoint['loops'])
-    # print(checkpoint['callbacks'])
-    # print(checkpoint['optimizer_states'])
-    # print(checkpoint['lr_schedulers'])
-    # hparams = checkpoint['optimizer_states'][0]
-    # print(hparams)
+    del checkpoint['state_dict']['criterion.empty_weight']
+    # print(checkpoint.keys())
+    model.load_state_dict(checkpoint['state_dict'])
 
     if debug:
         sys.exit()
 
-    model = P2PNet.load_from_checkpoint(checkpoint_path=args.weight_path, row=args.row, line=args.line, backbone=args.backbone)
     model.eval()
     model.cuda(args.gpu_id)
     
@@ -68,14 +73,14 @@ def main(args, debug=True):
     # total_dev = 0
     
     # for img_path in image_paths:
-    img_path = "/home/ubuntu/P2PNet/DATA_ROOT/test/frame_00020.jpg"
+    img_path = "./photos/frame_131.jpg"
     # load the images
     img_raw = Image.open(img_path).convert('RGB')
     # round the size
     width, height = img_raw.size
     new_width = width // 128 * 128
     new_height = height // 128 * 128
-    img_raw = img_raw.resize((new_width, new_height), Image.ANTIALIAS)
+    img_raw = img_raw.resize((new_width, new_height), Image.LANCZOS)
     # pre-proccessing
     img = transform(img_raw)
 
@@ -99,7 +104,7 @@ def main(args, debug=True):
 
     outputs_points = outputs['pred_points'][0]
     # draw the predictions
-    size = 6
+    size = 3
     img_to_draw = cv2.cvtColor(np.array(img_raw), cv2.COLOR_RGB2BGR)
     for p in points:
         img_to_draw = cv2.circle(img_to_draw, (int(p[0]), int(p[1])), size, (0, 0, 255), -1)
