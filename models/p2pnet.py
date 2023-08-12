@@ -20,7 +20,6 @@ from torchmetrics import Accuracy
 class P2PNet(pl.LightningModule):
     def __init__(self, args, backbone, row=2, line=2, training=False):
         super().__init__()
-        self.hparams = args
         self.backbone = backbone
         self.num_classes = 2
         # the number of all anchor points

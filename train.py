@@ -3,6 +3,7 @@ import argparse
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
 
 from engine import *
 from models import build_model
@@ -13,6 +14,7 @@ warnings.filterwarnings('ignore')
 
 
 def main(args):
+    pl.seed_everything(42, workers=True)
     print(args)
 
     best_mae_checkpoint_callback = ModelCheckpoint(
@@ -30,9 +32,11 @@ def main(args):
     )
 
     model = build_model(args, training=True)
+    
+    logger = TensorBoardLogger(save_dir='./logs', name='P2PNet')
     dm = FIBY_Lightning(args.data_root, args.batch_size,
                         args.num_workers, args.pin_memory)
-    trainer = pl.Trainer(devices=4, accelerator="gpu",
+    trainer = pl.Trainer(devices=4, accelerator="gpu", logger=logger,
                          strategy="ddp_find_unused_parameters_true",
                          callbacks=[best_mae_checkpoint_callback, latest_checkpoint_callback])
     trainer.fit(model, dm, ckpt_path=args.resume if args.resume else None)
@@ -101,6 +105,12 @@ def get_args_parser():
     parser.add_argument('--transfer_weights_path', default=None, type=str)
 
     parser.add_argument('--enable_checkpoint', default=None, type=bool)
+    
+    args = parser.parse_args([])
+    import pickle
+
+    with open("./weights/args_training.pkl", "wb") as f:
+        pickle.dump(args, f)
 
     return parser
 
