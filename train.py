@@ -30,7 +30,7 @@ def main(args):
         dirpath=args.checkpoints_dir,
         filename='latest_model-{epoch:02d}-{val_rmse:.2f}',
     )
-
+    
     model = build_model(args, training=True)
     
     logger = TensorBoardLogger(save_dir='./logs', name='P2PNet')

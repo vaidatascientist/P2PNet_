@@ -108,8 +108,6 @@ class P2PNet(pl.LightningModule):
         self.log('val_rmse', np.sqrt(mse), prog_bar=True)
 
     def configure_optimizers(self):
-        if not self.training:
-            return
         param_dicts = [
             {"params": [p for n, p in self.named_parameters(
             ) if "backbone" not in n and p.requires_grad]},
