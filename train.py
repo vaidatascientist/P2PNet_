@@ -53,9 +53,9 @@ def get_args_parser():
     parser.add_argument('--clip_max_norm', default=0.1, type=float,
                         help='gradient clipping max norm')
 
-    # Model parameters
-    parser.add_argument('--frozen_weights', type=str, default=None,
-                        help="Path to the pretrained model. If set, only the mask head will be trained")
+    # # Model parameters
+    # parser.add_argument('--frozen_weights', type=str, default=None,
+    #                     help="Path to the pretrained model. If set, only the mask head will be trained")
 
     # * Backbone
     parser.add_argument('--backbone', default='vgg16_bn', type=str,
@@ -80,17 +80,15 @@ def get_args_parser():
 
     # dataset parameters
     parser.add_argument('--dataset_file', default='SHHA')
-    parser.add_argument('--data_root', default='./new_public_density_data',
+    parser.add_argument('--data_root', default='./DATA_ROOT',
                         help='path where the dataset is')
 
-    parser.add_argument('--output_dir', default='./log',
-                        help='path where to save, empty for no saving')
-    parser.add_argument('--checkpoints_dir', default='./ckpt',
+    # parser.add_argument('--output_dir', default='./log',
+    #                     help='path where to save, empty for no saving')
+    
+    parser.add_argument('--checkpoints_dir', default='./weights',
                         help='path where to save checkpoints, empty for no saving')
-    parser.add_argument('--tensorboard_dir', default='./runs',
-                        help='path where to save, empty for no saving')
 
-    parser.add_argument('--seed', default=42, type=int)
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
@@ -102,15 +100,15 @@ def get_args_parser():
                         type=bool, help='pin_memory')
     # parser.add_argument('--gpu_id', default=[0], type=list, help='the gpu used for training')
 
-    parser.add_argument('--transfer_weights_path', default=None, type=str)
+    # parser.add_argument('--transfer_weights_path', default=None, type=str)
 
-    parser.add_argument('--enable_checkpoint', default=None, type=bool)
+    # parser.add_argument('--enable_checkpoint', default=None, type=bool)
     
-    args = parser.parse_args([])
-    import pickle
+    # args = parser.parse_args([])
+    # import pickle
 
-    with open("./weights/args_training.pkl", "wb") as f:
-        pickle.dump(args, f)
+    # with open("./weights/args_training.pkl", "wb") as f:
+    #     pickle.dump(args, f)
 
     return parser
 

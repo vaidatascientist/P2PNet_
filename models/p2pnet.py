@@ -21,7 +21,7 @@ class P2PNet(pl.LightningModule):
         super().__init__()
         self.backbone = backbone
         # freezing backbone layers to not be trained
-        self.backbone.freeze()
+        # self.backbone.freeze()
         
         # the number of all anchor points
         num_anchor_points = row * line
@@ -29,7 +29,7 @@ class P2PNet(pl.LightningModule):
         self.regression = RegressionModel(
             num_features_in=256, num_anchor_points=num_anchor_points)
         # freezing regression layers to not be trained
-        self.regression.freeze()
+        # self.regression.freeze()
         
         self.num_classes = 2
         self.classification = ClassificationModel(num_features_in=256,

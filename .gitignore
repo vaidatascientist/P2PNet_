@@ -10,6 +10,8 @@
 /.vscode
 /weights
 temp.ipynb
+pred_outputs/
+support.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

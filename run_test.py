@@ -43,9 +43,9 @@ def main(args, debug=False):
     os.environ["CUDA_VISIBLE_DEVICES"] = '{}'.format(args.gpu_id)
     device = torch.device('cuda')
     
-    load_path = "./args_training.pkl"
-    with open(load_path, "rb") as f:
-        loaded_args = pickle.load(f)
+    # load_path = "./args_training.pkl"
+    # with open(load_path, "rb") as f:
+    #     loaded_args = pickle.load(f)
     
     model = build_model(args, training=False)
     
@@ -73,7 +73,7 @@ def main(args, debug=False):
     # total_dev = 0
     
     # for img_path in image_paths:
-    img_path = "./photos/frame_131.jpg"
+    img_path = "./DATA_ROOT/test/frame_00100.jpg"
     # load the images
     img_raw = Image.open(img_path).convert('RGB')
     # round the size
