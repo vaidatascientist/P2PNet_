@@ -9,6 +9,7 @@
 /photos
 /.vscode
 /weights
+temp.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

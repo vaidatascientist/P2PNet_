@@ -1,3 +1,4 @@
+import random
 import os
 import cv2
 import torch
@@ -49,6 +50,7 @@ class SHHA(Dataset):
         gt_path = self.img_map[img_path]
         # load image and ground truth
         img, point = load_data((img_path, gt_path), self.train)
+        
         # apply augumentation
         if self.transform is not None:
             img = self.transform(img)
@@ -62,6 +64,16 @@ class SHHA(Dataset):
             if scale * min_size > 128:
                 img = torch.nn.functional.upsample_bilinear(img.unsqueeze(0), scale_factor=scale).squeeze(0)
                 point *= scale
+        
+        if self.train:
+            # New Augmentations
+            if random.random() > 0.5:
+                img, point = random_rotation(img, point)
+            if random.random() > 0.5:
+                img = adjust_brightness(img)
+            if random.random() > 0.5:
+                img = random_blur(img)
+                
         # random crop augumentaiton
         if self.train and self.patch:
             img, point = random_crop(img, point)
@@ -129,3 +141,39 @@ def random_crop(img, den, num_patch=4):
         result_den.append(record_den)
 
     return result_img, result_den
+
+def random_rotation(img, points, range_degree=(-10, 10)):
+    # Randomly select a rotation degree
+    angle = random.uniform(range_degree[0], range_degree[1])
+    # Get image dimensions
+    rows, cols, _ = img.shape
+    # Compute the rotation matrix
+    M = cv2.getRotationMatrix2D((cols / 2, rows / 2), angle, 1)
+    # Apply the rotation to the image
+    rotated_img = cv2.warpAffine(img, M, (cols, rows))
+    # Adjust the points
+    rotated_points = []
+    for (x, y) in points:
+        new_x = M[0, 0] * x + M[0, 1] * y + M[0, 2]
+        new_y = M[1, 0] * x + M[1, 1] * y + M[1, 2]
+        rotated_points.append((new_x, new_y))
+        
+    return rotated_img, rotated_points
+
+def adjust_brightness(img, factor_range=(0.8, 1.2)):
+    # Randomly select a brightness factor
+    factor = random.uniform(factor_range[0], factor_range[1])
+    # Convert the image to float32 to perform the brightness adjustment
+    img_float = img.astype(np.float32)
+    brightened_img = img_float * factor
+    brightened_img = np.clip(brightened_img, 0, 255).astype(np.uint8)
+    
+    return brightened_img
+
+def random_blur(img, max_ksize=5):
+    # Randomly select a kernel size (must be odd)
+    ksize = random.choice([i for i in range(1, max_ksize+1) if i % 2 == 1])
+    # Apply Gaussian blur
+    blurred_img = cv2.GaussianBlur(img, (ksize, ksize), 0)
+    
+    return blurred_img

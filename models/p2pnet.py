@@ -12,21 +12,26 @@ from util.misc import (NestedTensor,
 from .backbone import build_backbone
 from .matcher import build_matcher_crowd
 
-
 import pytorch_lightning as pl
-from torchmetrics import Accuracy
+from torchmetrics import MeanSquaredError
 
 
 class P2PNet(pl.LightningModule):
     def __init__(self, args, backbone, row=2, line=2, training=False):
         super().__init__()
         self.backbone = backbone
-        self.num_classes = 2
+        # freezing backbone layers to not be trained
+        self.backbone.freeze()
+        
         # the number of all anchor points
         num_anchor_points = row * line
 
         self.regression = RegressionModel(
             num_features_in=256, num_anchor_points=num_anchor_points)
+        # freezing regression layers to not be trained
+        self.regression.freeze()
+        
+        self.num_classes = 2
         self.classification = ClassificationModel(num_features_in=256,
                                                   num_classes=self.num_classes,
                                                   num_anchor_points=num_anchor_points)
@@ -48,8 +53,8 @@ class P2PNet(pl.LightningModule):
         if training:
             self.point_loss_coef = args.point_loss_coef
 
-            self.train_acc = Accuracy(task='binary')
-            self.val_acc = Accuracy(task='binary')
+            self.train_acc = MeanSquaredError()
+            self.val_acc = MeanSquaredError()
 
             self.weight_dict = {'loss_ce': 1, 'loss_points': self.point_loss_coef}
             self.losses = ['labels', 'points']
