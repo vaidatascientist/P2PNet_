@@ -69,14 +69,14 @@ class SHHA(Dataset):
                 img = torch.nn.functional.upsample_bilinear(img.unsqueeze(0), scale_factor=scale).squeeze(0)
                 point *= scale
         
-            if random.random() > 0.5:
-                img, point = random_rotation(img, point)
-            if random.random() > 0.5:
-                img = adjust_brightness(img)
-            if random.random() > 0.5:
-                img = random_blur(img)
-            if random.random() > 0.5:
-                img = adjust_contrast_tensor(img)
+            # if random.random() > 0.5:
+            #     img, point = random_rotation(img, point)
+            # if random.random() > 0.5:
+            #     img = adjust_brightness(img)
+            # if random.random() > 0.5:
+            #     img = random_blur(img)
+            # if random.random() > 0.5:
+            #     img = adjust_contrast_tensor(img)
                 
         # random crop augumentaiton
         if self.train and self.patch:

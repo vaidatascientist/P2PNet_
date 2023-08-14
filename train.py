@@ -32,15 +32,21 @@ def main(args):
         filename='latest_model-{epoch:02d}-{val_rmse:.2f}',
     )
     
-    model = build_model(args, training=True)
     swa_callback = StochasticWeightAveraging(swa_epoch_start=0.75, annealing_strategy='cos')
     
+    model = build_model(args, training=True)
     logger = TensorBoardLogger(save_dir='./logs', name='P2PNet')
+    
     dm = FIBY_Lightning(args.data_root, args.batch_size,
                         args.num_workers, args.pin_memory)
-    trainer = pl.Trainer(devices=4, accelerator="gpu", logger=logger,
-                         strategy="ddp_find_unused_parameters_true",
-                         callbacks=[best_mae_checkpoint_callback, latest_checkpoint_callback])
+    
+    trainer = pl.Trainer(devices=4, accelerator="gpu", strategy="ddp_find_unused_parameters_true",
+                         logger=logger,
+                        #  accumulate_grad_batches=3,
+                         callbacks=[best_mae_checkpoint_callback, latest_checkpoint_callback, swa_callback],
+                         max_epochs=args.epochs
+                         )
+    
     trainer.fit(model, dm, ckpt_path=args.resume if args.resume else None)
 
 def get_args_parser():
@@ -49,11 +55,11 @@ def get_args_parser():
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--lr_backbone', default=1e-5, type=float)
     parser.add_argument('--batch_size', default=8, type=int)
-    parser.add_argument('--weight_decay', default=1e-4, type=float)
-    parser.add_argument('--epochs', default=3500, type=int)
-    parser.add_argument('--lr_drop', default=3500, type=int)
-    parser.add_argument('--clip_max_norm', default=0.1, type=float,
-                        help='gradient clipping max norm')
+    # parser.add_argument('--weight_decay', default=1e-4, type=float)
+    parser.add_argument('--epochs', default=300, type=int)
+    # parser.add_argument('--lr_drop', default=3500, type=int)
+    # parser.add_argument('--clip_max_norm', default=0.1, type=float,
+    #                     help='gradient clipping max norm')
     parser.add_argument('--T_0', default=175, type=int, help='period of cosine annealing scheduler')
     parser.add_argument('T_mult', default=1, type=int, help='period multiplier of cosine annealing scheduler')
 
@@ -115,7 +121,6 @@ def get_args_parser():
     #     pickle.dump(args, f)
 
     return parser
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

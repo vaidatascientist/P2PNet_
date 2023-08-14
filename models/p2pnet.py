@@ -126,7 +126,8 @@ class P2PNet(pl.LightningModule):
         ]
         optimizer = torch.optim.Adam(param_dicts, lr=self.learning_rate)
         # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, self.lr_drop)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=self.T_0, T_mult=self.T_mult)
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=self.T_0, T_mult=self.T_mult)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=300)
         return [optimizer], [scheduler]
     
 # the network frmawork of the regression branch
