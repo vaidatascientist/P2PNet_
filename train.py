@@ -4,6 +4,7 @@ import argparse
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.callbacks import StochasticWeightAveraging
 
 from engine import *
 from models import build_model
@@ -32,6 +33,7 @@ def main(args):
     )
     
     model = build_model(args, training=True)
+    swa_callback = StochasticWeightAveraging(swa_epoch_start=0.75, annealing_strategy='cos')
     
     logger = TensorBoardLogger(save_dir='./logs', name='P2PNet')
     dm = FIBY_Lightning(args.data_root, args.batch_size,
@@ -52,6 +54,8 @@ def get_args_parser():
     parser.add_argument('--lr_drop', default=3500, type=int)
     parser.add_argument('--clip_max_norm', default=0.1, type=float,
                         help='gradient clipping max norm')
+    parser.add_argument('--T_0', default=175, type=int, help='period of cosine annealing scheduler')
+    parser.add_argument('T_mult', default=1, type=int, help='period multiplier of cosine annealing scheduler')
 
     # # Model parameters
     # parser.add_argument('--frozen_weights', type=str, default=None,

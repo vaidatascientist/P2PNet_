@@ -69,8 +69,6 @@ class SHHA(Dataset):
                 img = torch.nn.functional.upsample_bilinear(img.unsqueeze(0), scale_factor=scale).squeeze(0)
                 point *= scale
         
-        if self.train:
-            # New Augmentations
             if random.random() > 0.5:
                 img, point = random_rotation(img, point)
             if random.random() > 0.5:
@@ -79,12 +77,6 @@ class SHHA(Dataset):
                 img = random_blur(img)
             if random.random() > 0.5:
                 img = adjust_contrast_tensor(img)
-            if random.random() > 0.5:
-                img = inject_noise_tensor(img)
-            if random.random() > 0.5:
-                img = perspective_transform_tensor(img)
-            # if random.random() > 0.5:
-            #     img = elastic_transform_tensor(img)
                 
         # random crop augumentaiton
         if self.train and self.patch:
@@ -130,7 +122,8 @@ def load_data(img_gt_path, train):
 
     return img, np.array(points)
 
-# random crop augumentation
+
+
 def random_crop(img, den, num_patch=4):
     half_h = 128
     half_w = 128
@@ -186,8 +179,7 @@ def random_rotation(img_tensor, points, range_degree=(-10, 10)):
     
     return rotated_img_tensor, rotated_points
 
-
-def adjust_brightness(img_tensor, factor_range=(0.8, 1.2)):
+def adjust_brightness(img_tensor, factor_range=(0.4, 1.6)):
     """
     Adjusts the brightness of the given tensor image by multiplying with a random factor within factor_range.
     """
@@ -202,8 +194,7 @@ def adjust_brightness(img_tensor, factor_range=(0.8, 1.2)):
     
     return brightened_img_tensor
 
-
-def random_blur(img_tensor, max_ksize=5):
+def random_blur(img_tensor, max_ksize=3):
     """
     Applies a Gaussian blur with a random kernel size to the given tensor image.
     """
@@ -236,7 +227,7 @@ def random_blur(img_tensor, max_ksize=5):
     
     return blurred_img_tensor
 
-def adjust_contrast_tensor(img_tensor, factor_range=(0.8, 1.2)):
+def adjust_contrast_tensor(img_tensor, factor_range=(0.6, 1.4)):
     # Convert tensor to PIL Image for contrast adjustment
     img_pil = transforms.ToPILImage()(img_tensor)
     
@@ -251,44 +242,6 @@ def adjust_contrast_tensor(img_tensor, factor_range=(0.8, 1.2)):
     
     return contrasted_tensor
 
-def inject_noise_tensor(img_tensor, noise_factor=0.05):
-    noise = torch.randn_like(img_tensor) * noise_factor
-    
-    # Add noise to the image
-    noisy_img_tensor = img_tensor + noise
-    
-    # Clip values to be in the range [0, 1]
-    noisy_img_tensor = torch.clamp(noisy_img_tensor, 0, 1)
-    
-    return noisy_img_tensor
-
-def perspective_transform_tensor(img_tensor, max_warp=0.2):
-    # Convert tensor to numpy for perspective transform
-    img_np = img_tensor.numpy().transpose(1, 2, 0)
-    h, w, _ = img_np.shape
-    
-    # Randomly define four points for source and destination perspective
-    src_pts = np.array([[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]], dtype=np.float32)
-    
-    warp_shift = np.random.uniform(-max_warp, max_warp, size=src_pts.shape) * np.array([w, h])
-    dst_pts = src_pts + warp_shift
-    
-    # Ensure points are in the correct data type
-    dst_pts = dst_pts.astype(np.float32)
-    
-    # Compute the perspective transform matrix
-    M = cv2.getPerspectiveTransform(src_pts, dst_pts)
-    
-    # Apply the perspective transform
-    warped_img_np = cv2.warpPerspective(img_np, M, (w, h))
-    
-    # Convert the numpy image back to tensor
-    warped_img_tensor = torch.tensor(warped_img_np.transpose(2, 0, 1))
-    
-    return warped_img_tensor
-
-
-def elastic_transform_tensor(img_tensor, alpha=15, sigma=3):
     # Convert tensor to numpy for elastic transform
     img_np = img_tensor.numpy().transpose(1, 2, 0)
     h, w, _ = img_np.shape

@@ -50,6 +50,9 @@ class P2PNet(pl.LightningModule):
         # self.num_classes = 1
         self.fpn = Decoder(256, 512, 512)
         
+        self.T_0 = args.T_0
+        self.T_mult = args.T_mult
+        
         if training:
             self.point_loss_coef = args.point_loss_coef
 
@@ -99,18 +102,18 @@ class P2PNet(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         samples, targets = batch
         outputs = self(samples)
-        outputs_scores = torch.nn.functional.softmax(
-            outputs['pred_logits'], -1)[:, :, 1][0]
-        outputs_points = outputs['pred_points'][0]
+        
+        outputs_scores = torch.nn.functional.softmax(outputs['pred_logits'], -1)[:, :, 1][0]
+        # outputs_points = outputs['pred_points'][0]
         gt_cnt = targets[0]['point'].shape[0]
         threshold = 0.5
-        points = outputs_points[outputs_scores >
-                                threshold].detach().cpu().numpy().tolist()
+        # points = outputs_points[outputs_scores >
+        #                         threshold].detach().cpu().numpy().tolist()
         predict_cnt = int((outputs_scores > threshold).sum())
         mae = abs(predict_cnt - gt_cnt)
-        mse = (predict_cnt - gt_cnt) * (predict_cnt - gt_cnt)
+        # mse = (predict_cnt - gt_cnt) * (predict_cnt - gt_cnt)
         self.log('val_mae', mae, prog_bar=True)
-        self.log('val_rmse', np.sqrt(mse), prog_bar=True)
+        # self.log('val_rmse', np.sqrt(mse), prog_bar=True)
 
     def configure_optimizers(self):
         param_dicts = [
@@ -122,7 +125,8 @@ class P2PNet(pl.LightningModule):
             },
         ]
         optimizer = torch.optim.Adam(param_dicts, lr=self.learning_rate)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, self.lr_drop)
+        # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, self.lr_drop)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=self.T_0, T_mult=self.T_mult)
         return [optimizer], [scheduler]
     
 # the network frmawork of the regression branch
