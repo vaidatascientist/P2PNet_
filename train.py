@@ -68,7 +68,7 @@ def get_args_parser():
     #                     help="Path to the pretrained model. If set, only the mask head will be trained")
 
     # * Backbone
-    parser.add_argument('--backbone', default='vgg16_bn', type=str,
+    parser.add_argument('--backbone', default='vgg19_bn', type=str,
                         help="Name of the convolutional backbone to use")
 
     # * Matcher
