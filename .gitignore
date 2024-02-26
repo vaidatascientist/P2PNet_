@@ -13,6 +13,11 @@
 temp.ipynb
 pred_outputs/
 support.txt
+DATA_ROOT_UPDATED/
+DATA_ROOT_UPDATED_FILTERED/
+shanghaiweights/
+MPRNet/
+results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

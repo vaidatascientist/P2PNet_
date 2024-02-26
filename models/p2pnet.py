@@ -13,15 +13,18 @@ from .backbone import build_backbone
 from .matcher import build_matcher_crowd
 
 import pytorch_lightning as pl
-from torchmetrics import MeanSquaredError
+from torchmetrics import MeanAbsoluteError
 
+from torch.optim.lr_scheduler import StepLR
 
 class P2PNet(pl.LightningModule):
     def __init__(self, args, backbone, row=2, line=2, training=False):
         super().__init__()
         self.backbone = backbone
-        # freezing backbone layers to not be trained
-        # self.backbone.freeze()
+        
+        # freeze backbone
+        # for params in self.backbone.parameters():
+        #     params.requires_grad = False
         
         # the number of all anchor points
         num_anchor_points = row * line
@@ -36,10 +39,6 @@ class P2PNet(pl.LightningModule):
                                                   num_classes=self.num_classes,
                                                   num_anchor_points=num_anchor_points)
 
-        # freezing backbone layers to not be trained
-        # for params in self.backbone.parameters():
-        #     params.requires_grad = False
-
         # # freezing regression layers to not be trained
         # for params in self.regression.parameters():
         #     params.requires_grad = False
@@ -53,11 +52,12 @@ class P2PNet(pl.LightningModule):
         self.T_0 = args.T_0
         self.T_mult = args.T_mult
         
+        
         if training:
             self.point_loss_coef = args.point_loss_coef
 
-            self.train_acc = MeanSquaredError()
-            self.val_acc = MeanSquaredError()
+            self.train_acc = MeanAbsoluteError()
+            self.val_acc = MeanAbsoluteError()
 
             self.weight_dict = {'loss_ce': 1, 'loss_points': self.point_loss_coef}
             self.losses = ['labels', 'points']
@@ -67,8 +67,8 @@ class P2PNet(pl.LightningModule):
                                                 matcher=self.matcher, weight_dict=self.weight_dict,
                                                 eos_coef=args.eos_coef, losses=self.losses)
             self.learning_rate = args.lr
-            self.lr_backbone = args.lr_backbone
             self.lr_drop = args.lr_drop
+            self.lr_backbone = args.lr_backbone
 
     def forward(self, samples: NestedTensor):
         # get the backbone features
@@ -115,6 +115,7 @@ class P2PNet(pl.LightningModule):
         self.log('val_mae', mae, prog_bar=True)
         # self.log('val_rmse', np.sqrt(mse), prog_bar=True)
 
+
     def configure_optimizers(self):
         param_dicts = [
             {"params": [p for n, p in self.named_parameters(
@@ -125,10 +126,16 @@ class P2PNet(pl.LightningModule):
             },
         ]
         optimizer = torch.optim.Adam(param_dicts, lr=self.learning_rate)
-        # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, self.lr_drop)
-        # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=self.T_0, T_mult=self.T_mult)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=300)
-        return [optimizer], [scheduler]
+        # scheduler = StepLR(optimizer, step_size=100, gamma=0.95)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=50, factor=0.8, verbose=True)
+        # return [optimizer], [scheduler]
+        return {
+            'optimizer': optimizer,
+            'lr_scheduler': {
+                'scheduler': scheduler,
+                'monitor': 'val_mae',
+            }
+        }
     
 # the network frmawork of the regression branch
 
