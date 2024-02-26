@@ -1,4 +1,5 @@
-/DATA_ROOT
+/DATA_ROOT_UPDATED
+/results
 /__pycache__
 /apdcephfs
 /logs
