@@ -5,10 +5,11 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import StochasticWeightAveraging
+from pytorch_lightning.tuner import Tuner
 
 from engine import *
 from models import build_model
-from tensorboardX import SummaryWriter
+
 from crowd_datasets.SHHA.loading_data import FIBY_Lightning
 
 warnings.filterwarnings('ignore')
@@ -19,9 +20,9 @@ def main(args):
     print(args)
 
     best_mae_checkpoint_callback = ModelCheckpoint(
-        monitor='val_rmse',
+        monitor='val_mae',
         dirpath=args.checkpoints_dir,
-        filename='best_rmse_model-{epoch:02d}-{val_rmse:.2f}',
+        filename='best_mae_model-{epoch:02d}-{val_mae:.2f}',
         save_top_k=1,
         mode='min',
         every_n_epochs=1
@@ -29,39 +30,59 @@ def main(args):
 
     latest_checkpoint_callback = ModelCheckpoint(
         dirpath=args.checkpoints_dir,
-        filename='latest_model-{epoch:02d}-{val_rmse:.2f}',
+        filename='latest_model-{epoch:02d}-{val_mae:.2f}',
     )
-    
-    swa_callback = StochasticWeightAveraging(swa_epoch_start=0.75, annealing_strategy='cos')
-    
+
+    # swa_callback = StochasticWeightAveraging(
+    #     swa_epoch_start=0.75, annealing_strategy='cos', swa_lrs=1e-5)
+
     model = build_model(args, training=True)
+
+    # if args.pretrained:
+    #     # assert that the args.pretrained file has torch.load(args.pretrained)['state_dict'
+    #     # assert 'state_dict' in torch.load(args.pretrained).keys()
+    #     print(torch.load(args.pretrained)['model'].keys())
+    #     model.load_state_dict(torch.load(args.pretrained)['model'])
+
     logger = TensorBoardLogger(save_dir='./logs', name='P2PNet')
-    
+
     dm = FIBY_Lightning(args.data_root, args.batch_size,
                         args.num_workers, args.pin_memory)
-    
-    trainer = pl.Trainer(devices=4, accelerator="gpu", strategy="ddp_find_unused_parameters_true",
+
+    trainer = pl.Trainer(devices=8, accelerator="gpu", strategy="ddp_find_unused_parameters_true",
                          logger=logger,
+                         #  gradient_clip_val=args.clip_max_norm,
                         #  accumulate_grad_batches=3,
-                         callbacks=[best_mae_checkpoint_callback, latest_checkpoint_callback, swa_callback],
-                         max_epochs=args.epochs
+                         callbacks=[best_mae_checkpoint_callback,
+                                    latest_checkpoint_callback,
+                                    StochasticWeightAveraging(swa_lrs=1e-5)],
+                         max_epochs=args.epochs,
                          )
-    
+
+    # tuner = Tuner(trainer)
+
+    # currently not supported for DDP
+    # tuner.scale_batch_size(model, mode='binsearch')
+
+    # tuner.lr_find(model, dm)
+
     trainer.fit(model, dm, ckpt_path=args.resume if args.resume else None)
 
 def get_args_parser():
     parser = argparse.ArgumentParser(
         'Set parameters for training P2PNet', add_help=False)
-    parser.add_argument('--lr', default=1e-4, type=float)
+    parser.add_argument('--lr', default=0.0001445439770745928, type=float)
     parser.add_argument('--lr_backbone', default=1e-5, type=float)
-    parser.add_argument('--batch_size', default=8, type=int)
+    parser.add_argument('--batch_size', default=16, type=int)
     # parser.add_argument('--weight_decay', default=1e-4, type=float)
-    parser.add_argument('--epochs', default=300, type=int)
-    # parser.add_argument('--lr_drop', default=3500, type=int)
-    # parser.add_argument('--clip_max_norm', default=0.1, type=float,
-    #                     help='gradient clipping max norm')
-    parser.add_argument('--T_0', default=175, type=int, help='period of cosine annealing scheduler')
-    parser.add_argument('T_mult', default=1, type=int, help='period multiplier of cosine annealing scheduler')
+    parser.add_argument('--epochs', default=1000, type=int)
+    parser.add_argument('--lr_drop', default=3500, type=int)
+    parser.add_argument('--clip_max_norm', default=0.1, type=float,
+                        help='gradient clipping max norm')
+    parser.add_argument('--T_0', default=175, type=int,
+                        help='period of cosine annealing scheduler')
+    parser.add_argument('--T_mult', default=1, type=int,
+                        help='period multiplier of cosine annealing scheduler')
 
     # # Model parameters
     # parser.add_argument('--frozen_weights', type=str, default=None,
@@ -90,13 +111,13 @@ def get_args_parser():
 
     # dataset parameters
     parser.add_argument('--dataset_file', default='SHHA')
-    parser.add_argument('--data_root', default='./DATA_ROOT',
+    parser.add_argument('--data_root', default='./DATA_ROOT_UPDATED',
                         help='path where the dataset is')
 
     # parser.add_argument('--output_dir', default='./log',
     #                     help='path where to save, empty for no saving')
-    
-    parser.add_argument('--checkpoints_dir', default='./weights',
+
+    parser.add_argument('--checkpoints_dir', default='./weights_train',
                         help='path where to save checkpoints, empty for no saving')
 
     parser.add_argument('--resume', default='', help='resume from checkpoint')
@@ -108,12 +129,13 @@ def get_args_parser():
                         help='frequency of evaluation, default setting is evaluating in every 5 epoch')
     parser.add_argument('--pin_memory', default=True,
                         type=bool, help='pin_memory')
+    parser.add_argument('--pretrained', default=None, type=str)
     # parser.add_argument('--gpu_id', default=[0], type=list, help='the gpu used for training')
 
     # parser.add_argument('--transfer_weights_path', default=None, type=str)
 
     # parser.add_argument('--enable_checkpoint', default=None, type=bool)
-    
+
     # args = parser.parse_args([])
     # import pickle
 

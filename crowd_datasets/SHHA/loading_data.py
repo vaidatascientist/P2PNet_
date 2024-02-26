@@ -21,8 +21,11 @@ def loading_data(data_root):
     transform = standard_transforms.Compose([
         standard_transforms.ToTensor(),
         standard_transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                      std=[0.229, 0.224, 0.225]),
+                                    std=[0.229, 0.224, 0.225]),
+        # standard_transforms.Normalize(mean=[0.7351, 0.6163, 0.5233],
+        #                             std=[0.2114, 0.2171, 0.2306]),
     ])
+    
     # create the training dataset
     train_set = SHHA(data_root, train=True,
                      transform=transform, patch=True, flip=True)

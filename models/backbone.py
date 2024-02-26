@@ -53,7 +53,7 @@ class Backbone_VGG(BackboneBase_VGG):
     """ResNet backbone with frozen BatchNorm."""
     def __init__(self, name: str, return_interm_layers: bool):
         if name == 'vgg16_bn':
-            backbone = models.vgg16_bn(pretrained=True)
+            backbone = models.vgg16_bn(pretrained=True, sync=True)
         elif name == 'vgg16':
             backbone = models.vgg16(pretrained=True)
         elif name == 'vgg19_bn':
