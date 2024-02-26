@@ -38,11 +38,10 @@ class BackboneBase_VGG(nn.Module):
         features = list(backbone.features.children())
         if return_interm_layers:
             if name == 'vgg19_bn':
-                # VGG19_bn has more convolutional layers; adjust indices accordingly
-                self.body1 = nn.Sequential(*features[:16])  # Up to the first max pooling
-                self.body2 = nn.Sequential(*features[16:27])  # Up to the second max pooling
-                self.body3 = nn.Sequential(*features[27:40])  # Up to the third max pooling
-                self.body4 = nn.Sequential(*features[40:53])  # Up to the fourth max pooling
+                self.body1 = nn.Sequential(*features[:13]) 
+                self.body2 = nn.Sequential(*features[13:26])  
+                self.body3 = nn.Sequential(*features[26:39])
+                self.body4 = nn.Sequential(*features[39:52])
             else:
                 # For VGG19 without batch normalization (not requested, but for completeness)
                 self.body1 = nn.Sequential(*features[:4])
@@ -82,7 +81,7 @@ class Backbone_VGG(BackboneBase_VGG):
         elif name == 'vgg16':
             backbone = models.vgg16(pretrained=True)
         elif name == 'vgg19_bn':
-            backbone = models.vgg19_bn(pretrained=True)
+            backbone = models.vgg19_bn(pretrained=True, sync=True)
         num_channels = 256
         super().__init__(backbone, num_channels, name, return_interm_layers)
 

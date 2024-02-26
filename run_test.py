@@ -28,7 +28,7 @@ def get_args_parser():
     parser.add_argument('--line', default=2, type=int,
                         help="line number of anchor points")
 
-    parser.add_argument('--output_dir', default='./results',
+    parser.add_argument('--output_dir', default='./results/5',
                         help='path where to save')
     parser.add_argument('--weight_path', default='',
                         help='path where the trained weights saved')

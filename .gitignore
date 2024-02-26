@@ -18,6 +18,8 @@ DATA_ROOT_UPDATED_FILTERED/
 shanghaiweights/
 MPRNet/
 results/
+weights_train/
+lol.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
