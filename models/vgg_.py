@@ -98,7 +98,7 @@ cfgs = {
 }
 
 
-def _vgg(arch, cfg, batch_norm, pretrained, progress, sync=False, **kwargs):
+def _vgg(arch, cfg, batch_norm, pretrained, progress, sync=True, **kwargs):
     if pretrained:
         kwargs['init_weights'] = False
     model = VGG(make_layers(cfgs[cfg], batch_norm=batch_norm, sync=sync), **kwargs)
